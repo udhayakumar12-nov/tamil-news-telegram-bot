@@ -1,1 +1,5 @@
-py -m pip freeze > requirements.txt
+python-telegram-bot==21.10
+selenium==4.27.1
+beautifulsoup4==4.13.4
+requests==2.32.3
+webdriver-manager==4.0.2
