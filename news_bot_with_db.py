@@ -9,7 +9,7 @@ from datetime import datetime
 import sqlite3
 import asyncio
 
-BOT_TOKEN = "8091295195:AAGxj5jHHe1I8gj9Ru3Xj-AZlY-Z512JqxI"  # உங்கள் Token
+BOT_TOKEN = "8091295195:AAEEpfVVyWxzGrVhr9qLQb_tnpbyhbUXsa4"  # உங்கள் Token
 
 # ---------- DATABASE SETUP ----------
 def init_db():
