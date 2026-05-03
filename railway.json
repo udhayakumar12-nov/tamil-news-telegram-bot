@@ -5,7 +5,6 @@
   },
   "deploy": {
     "startCommand": "python news_bot_with_db.py",
-    "restartPolicyType": "ON_FAILURE",
-    "healthcheckPath": "/"
+    "restartPolicyType": "ON_FAILURE"
   }
 }
