@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-# Install Chrome (modern GPG method)
+# Install Chrome & dependencies (modern GPG method)
 RUN apt-get update && apt-get install -y \
     wget gnupg unzip curl \
     && curl -fsSL https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg \
