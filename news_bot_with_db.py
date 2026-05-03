@@ -9,7 +9,9 @@ from datetime import datetime
 import sqlite3
 import asyncio
 
-BOT_TOKEN = "8091295195:AAEEpfVVyWxzGrVhr9qLQb_tnpbyhbUXsa4"  # உங்கள் Token
+import os
+
+BOT_TOKEN = os.environ.get("BOT_TOKEN")   # Railway / Render variables-ல் stored  # உங்கள் Token
 
 # ---------- DATABASE SETUP ----------
 def init_db():
