@@ -8,20 +8,18 @@ def get_dailythanthi_news():
     driver = None
     try:
         options = webdriver.ChromeOptions()
-        # Critical for Railway (headless Linux container)
-        options.add_argument('--headless=new')       # Modern headless mode
+        options.add_argument('--headless=new')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--disable-gpu')
         options.add_argument('--remote-debugging-port=9222')
+        options.add_argument('--disable-software-rasterizer')
         
-        # Force Chrome binary location (Railway)
-        options.binary_location = '/usr/bin/google-chrome'
+        # Important: Let ChromeDriverManager find Chrome binary automatically
+        # Do NOT set binary_location unless absolutely necessary
         
-        driver = webdriver.Chrome(
-            service=Service(ChromeDriverManager().install()),
-            options=options
-        )
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=options)
         
         driver.get("https://www.dailythanthi.com/")
         driver.implicitly_wait(5)
