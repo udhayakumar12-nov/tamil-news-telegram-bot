@@ -1,22 +1,25 @@
 print("🚀 Bot is starting...")
 
 import os
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+import asyncio
+import csv
+import sqlite3
+import requests
+import feedparser
+from datetime import datetime
+from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
-import csv
-from datetime import datetime
-import sqlite3
-import asyncio
-import requests
-from bs4 import BeautifulSoup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 
-# Temporary Hardcode (Replace with your actual token)
+# ---------- CONFIGURATION ----------
 BOT_TOKEN = "8553083543:AAFH0mrb0fRgcQTYzDnH0xQPklz_BGmQQcw"
-ADMIN_ID = 8623813419  # Your Telegram User ID
+ADMIN_ID = 8623813419
 
 # ---------- DATABASE SETUP ----------
 def init_db():
@@ -81,6 +84,20 @@ def get_bbc_news():
         print(f"❌ BBC பிழை: {e}")
     return news_list
 
+# ---------- ENGLISH NEWS ----------
+def get_english_news():
+    news_list = []
+    try:
+        feed = feedparser.parse('https://feeds.bbci.co.uk/news/world/rss.xml')
+        for entry in feed.entries[:8]:
+            title = entry.title
+            link = entry.link
+            news_list.append(f"📌 *{title}*\n🔗 [Read more]({link})\n🏷️ *Source:* BBC World (English)")
+        print(f"✅ English News - {len(news_list)} செய்திகள்")
+    except Exception as e:
+        print(f"❌ English RSS error: {e}")
+    return news_list
+
 # ---------- DAILY THANTHI NEWS ----------
 def get_dailythanthi_news():
     news_list = []
@@ -111,6 +128,12 @@ def get_dailythanthi_news():
             driver.quit()
     return news_list
 
+# ---------- SEARCH FUNCTION ----------
+def search_news(keyword):
+    all_news = get_bbc_news() + get_dailythanthi_news()
+    filtered = [news for news in all_news if keyword.lower() in news.lower()]
+    return filtered
+
 # ---------- TELEGRAM HANDLERS ----------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -118,9 +141,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         f"வணக்கம் {user.first_name}! 👋\n\n"
         "நீங்கள் எங்கள் செய்திச் சேவையில் பதிவு செய்யப்பட்டுள்ளீர்கள்!\n\n"
-        "📰 /news - உடனடியாக செய்திகளைப் பெற\n"
-        "👥 /stats - மொத்த subscribers-களைப் பார்க்க (Admin only)\n"
-        "📢 /broadcast [message] - அனைவருக்கும் செய்தி அனுப்ப (Admin only)\n"
+        "📰 /menu - செய்தி வகைகளைப் பார்க்க\n"
+        "🔍 /search <keyword> - செய்திகளைத் தேட\n"
+        "👥 /stats - மொத்த subscribers (Admin only)\n"
+        "📢 /broadcast - அனைவருக்கும் செய்தி (Admin only)\n"
         "/help - உதவி"
     )
 
@@ -128,7 +152,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🔧 கட்டளைகள்:\n\n"
         "/start - Bot-ஐ தொடங்க\n"
-        "/news - செய்திகளைப் பெற\n"
+        "/menu - செய்தி வகைகளைப் பார்க்க\n"
+        "/news - உடனடிச் செய்திகள்\n"
+        "/search <keyword> - செய்திகளைத் தேட\n"
         "/stats - மொத்த subscribers (Admin only)\n"
         "/broadcast - அனைவருக்கும் செய்தி (Admin only)\n"
         "/help - உதவி"
@@ -182,6 +208,89 @@ async def get_news(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❌ எந்த தளத்திலிருந்தும் செய்திகள் கிடைக்கவில்லை.")
 
+async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyword = " ".join(context.args)
+    if not keyword:
+        await update.message.reply_text("🔍 *Usage:* /search <keyword>\n\nExample: /search தேர்தல்", parse_mode='Markdown')
+        return
+    
+    await update.message.reply_text(f"🔍 *Searching for '{keyword}'...*", parse_mode='Markdown')
+    filtered = search_news(keyword)
+    
+    if filtered:
+        message = "🔎 *Search Results:*\n\n" + "\n\n".join(filtered[:10])
+        await update.message.reply_text(message, parse_mode='Markdown')
+    else:
+        await update.message.reply_text(f"❌ *No results found for '{keyword}'.*", parse_mode='Markdown')
+
+# ---------- CATEGORY MENU ----------
+async def news_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [InlineKeyboardButton("📰 தமிழ் செய்திகள்", callback_data='tamil_news')],
+        [InlineKeyboardButton("🌍 English News", callback_data='english_news')],
+        [InlineKeyboardButton("🏏 விளையாட்டு", callback_data='sports_news')],
+        [InlineKeyboardButton("🎬 சினிமா", callback_data='cinema_news')],
+        [InlineKeyboardButton("💰 பொருளாதாரம்", callback_data='business_news')],
+        [InlineKeyboardButton("🔍 தேடு (Search)", callback_data='search_news')],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(
+        "📰 *செய்தி வகைகள் - Select a category:*\n\n👇 கீழே உள்ள Button-ஐ அழுத்தவும்.",
+        reply_markup=reply_markup,
+        parse_mode='Markdown'
+    )
+
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    category = query.data
+    
+    if category == 'tamil_news':
+        await query.edit_message_text("📰 தமிழ் செய்திகள் சேகரிக்கப்படுகிறது. சிறிது பொறுக்கவும்...")
+        await get_news(update, context)
+    elif category == 'english_news':
+        await query.edit_message_text("🌍 English news fetching...")
+        english_news = get_english_news()
+        if english_news:
+            message = "🌍 *World News (English):*\n\n" + "\n\n".join(english_news[:8])
+            await query.message.reply_text(message, parse_mode='Markdown')
+        else:
+            await query.message.reply_text("❌ English news unavailable.")
+    elif category == 'search_news':
+        await query.edit_message_text("🔍 *Search Feature*\n\nSend /search <keyword>\n\nExample: /search தேர்தல்", parse_mode='Markdown')
+    else:
+        await query.edit_message_text(f"⏳ '{category}' category coming soon!")
+
+# ---------- AUTO-POST FUNCTIONS ----------
+async def auto_post_morning(app):
+    users = get_all_users()
+    if not users:
+        return
+    tamil_news = get_bbc_news() + get_dailythanthi_news()
+    if tamil_news:
+        message = "🌅 *Good Morning! Here's your Tamil News:*\n\n" + "\n\n".join(tamil_news[:8])
+        for chat_id in users:
+            try:
+                await app.bot.send_message(chat_id=chat_id, text=message, parse_mode='Markdown')
+                await asyncio.sleep(0.5)
+            except:
+                pass
+
+async def auto_post_evening(app):
+    users = get_all_users()
+    if not users:
+        return
+    english_news = get_english_news()
+    if english_news:
+        message = "🌙 *Good Evening! Here's your English News:*\n\n" + "\n\n".join(english_news[:8])
+        for chat_id in users:
+            try:
+                await app.bot.send_message(chat_id=chat_id, text=message, parse_mode='Markdown')
+                await asyncio.sleep(0.5)
+            except:
+                pass
+
 # ---------- MAIN ----------
 def main():
     init_db()
@@ -191,12 +300,35 @@ def main():
     app = Application.builder().token(BOT_TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("menu", news_menu))
     app.add_handler(CommandHandler("news", get_news))
+    app.add_handler(CommandHandler("search", search_command))
     app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("broadcast", broadcast))
     app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CallbackQueryHandler(button_handler))
     
-    app.run_polling()
-
+    # Run the bot with scheduler in the same event loop
+        async def run():
+        scheduler = AsyncIOScheduler(timezone='Asia/Kolkata')
+        
+        # Production schedule (8 AM & 6 PM IST)
+        scheduler.add_job(auto_post_morning, CronTrigger(hour=8, minute=0), args=[app])
+        scheduler.add_job(auto_post_evening, CronTrigger(hour=18, minute=0), args=[app])
+        
+        scheduler.start()
+        print("✅ Scheduler started! Auto-post at 8:00 AM & 6:00 PM IST")
+        
+        # Start polling
+        await app.initialize()
+        await app.start()
+        await app.updater.start_polling()
+        
+        # Keep running
+        try:
+            await asyncio.get_event_loop().create_future()
+        except:
+            pass
+    
 if __name__ == "__main__":
     main()
