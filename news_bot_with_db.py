@@ -223,7 +223,6 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(f"❌ *No results found for '{keyword}'.*", parse_mode='Markdown')
 
-# ---------- CATEGORY MENU ----------
 async def news_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("📰 தமிழ் செய்திகள்", callback_data='tamil_news')],
@@ -247,10 +246,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     category = query.data
     
     if category == 'tamil_news':
-        await query.edit_message_text("📰 தமிழ் செய்திகள் சேகரிக்கப்படுகிறது. சிறிது பொறுக்கவும்...")
         await get_news(update, context)
     elif category == 'english_news':
-        await query.edit_message_text("🌍 English news fetching...")
         english_news = get_english_news()
         if english_news:
             message = "🌍 *World News (English):*\n\n" + "\n\n".join(english_news[:8])
@@ -258,11 +255,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await query.message.reply_text("❌ English news unavailable.")
     elif category == 'search_news':
-        await query.edit_message_text("🔍 *Search Feature*\n\nSend /search <keyword>\n\nExample: /search தேர்தல்", parse_mode='Markdown')
+        await query.message.reply_text("🔍 Send /search <keyword> (e.g., /search தேர்தல்)")
     else:
-        await query.edit_message_text(f"⏳ '{category}' category coming soon!")
+        await query.message.reply_text(f"⏳ '{category}' category coming soon!")
 
-# ---------- AUTO-POST FUNCTIONS ----------
 async def auto_post_morning(app):
     users = get_all_users()
     if not users:
@@ -308,27 +304,13 @@ def main():
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CallbackQueryHandler(button_handler))
     
-    # Run the bot with scheduler in the same event loop
-        async def run():
-        scheduler = AsyncIOScheduler(timezone='Asia/Kolkata')
-        
-        # Production schedule (8 AM & 6 PM IST)
-        scheduler.add_job(auto_post_morning, CronTrigger(hour=8, minute=0), args=[app])
-        scheduler.add_job(auto_post_evening, CronTrigger(hour=18, minute=0), args=[app])
-        
-        scheduler.start()
-        print("✅ Scheduler started! Auto-post at 8:00 AM & 6:00 PM IST")
-        
-        # Start polling
-        await app.initialize()
-        await app.start()
-        await app.updater.start_polling()
-        
-        # Keep running
-        try:
-            await asyncio.get_event_loop().create_future()
-        except:
-            pass
+    scheduler = AsyncIOScheduler(timezone='Asia/Kolkata')
+    scheduler.add_job(auto_post_morning, CronTrigger(hour=8, minute=0), args=[app])
+    scheduler.add_job(auto_post_evening, CronTrigger(hour=18, minute=0), args=[app])
+    scheduler.start()
+    print("✅ Scheduler started! Auto-post at 8:00 AM & 6:00 PM IST")
     
+    app.run_polling()
+
 if __name__ == "__main__":
     main()
