@@ -18,6 +18,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 # ---------- CONFIGURATION ----------
+import os
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
 BOT_TOKEN = "8553083543:AAFH0mrb0fRgcQTYzDnH0xQPklz_BGmQQcw"
 ADMIN_ID = 8623813419
 
