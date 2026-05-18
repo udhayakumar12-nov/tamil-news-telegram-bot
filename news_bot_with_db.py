@@ -133,59 +133,61 @@ def get_sports_news():
     sources = [
         ('https://feeds.bbci.co.uk/sport/rss.xml', 'BBC Sport'),
         ('https://www.espn.com/espn/rss/news', 'ESPN'),
+        ('https://www.skysports.com/rss/0,20500,11661,00.xml', 'Sky Sports'),
         ('https://rss.nytimes.com/services/xml/rss/nyt/Sports.xml', 'NYT Sports')
     ]
     for url, source_name in sources:
         try:
-            feed = feedparser.parse(url)
+            # Add User-Agent to avoid blocking
+            feed = feedparser.parse(url, agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
             if feed.entries:
-                for entry in feed.entries[:4]:
+                for entry in feed.entries[:3]:
                     news_list.append(f"🏏 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* {source_name}")
-                break  # stop after first successful source
+                break
         except:
             continue
     if not news_list:
-        # Ultimate fallback – static message (so button never appears dead)
-        news_list.append("🏏 *Sports News*\nNo sports news right now. Please try again later.")
+        news_list.append("🏏 *Sports News*\nUnable to fetch sports news. Please try again later.")
     return news_list[:8]
 # ---------- CINEMA NEWS ----------
 def get_cinema_news():
     news_list = []
-    try:
-        feed = feedparser.parse('https://variety.com/feed/')
-        if feed.entries:
-            for entry in feed.entries[:6]:
-                news_list.append(f"🎬 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Variety")
-        else:
-            raise Exception("No entries")
-    except:
+    sources = [
+        ('https://variety.com/feed/', 'Variety'),
+        ('https://www.hollywoodreporter.com/feed/', 'Hollywood Reporter'),
+        ('https://www.empireonline.com/feed/', 'Empire')
+    ]
+    for url, source_name in sources:
         try:
-            feed = feedparser.parse('https://www.hollywoodreporter.com/feed/')
-            for entry in feed.entries[:6]:
-                news_list.append(f"🎬 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Hollywood Reporter")
+            feed = feedparser.parse(url, agent='Mozilla/5.0')
+            if feed.entries:
+                for entry in feed.entries[:3]:
+                    news_list.append(f"🎬 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* {source_name}")
+                break
         except:
-            pass
+            continue
     if not news_list:
-        news_list.append("🎬 *Cinema News*\nUnable to fetch cinema news. Please try again later.")
+        news_list.append("🎬 *Cinema News*\nNo cinema news available. Try again later.")
     return news_list[:8]
 
 # ---------- BUSINESS NEWS ----------
 def get_business_news():
     news_list = []
-    try:
-        feed = feedparser.parse('https://feeds.reuters.com/reuters/businessNews')
-        if feed.entries:
-            for entry in feed.entries[:6]:
-                news_list.append(f"💰 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Reuters")
-        else:
-            raise Exception("No entries")
-    except:
+    sources = [
+        ('https://feeds.reuters.com/reuters/businessNews', 'Reuters'),
+        ('https://feeds.bbci.co.uk/news/business/rss.xml', 'BBC Business'),
+        ('https://www.ft.com/?format=rss', 'Financial Times'),
+        ('https://feeds.bloomberg.com/markets/news.rss', 'Bloomberg')
+    ]
+    for url, source_name in sources:
         try:
-            feed = feedparser.parse('https://feeds.bbci.co.uk/news/business/rss.xml')
-            for entry in feed.entries[:6]:
-                news_list.append(f"💰 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* BBC Business")
+            feed = feedparser.parse(url)
+            if feed.entries:
+                for entry in feed.entries[:3]:
+                    news_list.append(f"💰 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* {source_name}")
+                break  # stop after first successful source
         except:
-            pass
+            continue
     if not news_list:
         news_list.append("💰 *Business News*\nUnable to fetch business news. Please try again later.")
     return news_list[:8]
