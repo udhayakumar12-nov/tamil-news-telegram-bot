@@ -66,24 +66,31 @@ def get_bbc_news():
     news_list = []
     try:
         url = "https://www.bbc.com/tamil"
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept-Language': 'ta-IN,ta;q=0.9,en;q=0.8'
+        }
         response = requests.get(url, headers=headers, timeout=15)
-        soup = BeautifulSoup(response.content, 'html.parser')
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Try multiple selectors
         articles = soup.find_all('a', class_='focusIndicatorDisplayBlock')
         if not articles:
             articles = soup.find_all('h3')
-        for a in articles[:10]:
+        if not articles:
+            articles = soup.find_all('h2')
+            
+        for a in articles[:12]:
             title = a.get_text(strip=True)
             href = a.get('href') if a.name == 'a' else (a.find('a').get('href') if a.find('a') else None)
             if title and len(title) > 15 and href:
                 if not href.startswith('http'):
                     href = 'https://www.bbc.com' + href
                 news_list.append(f"📌 *{title}*\n🔗 [Read more]({href})\n🏷️ *Source:* பிபிசி தமிழ்")
-        print(f"✅ BBC - {len(news_list)} செய்திகள்")
+        print(f"✅ BBC Tamil - {len(news_list)} செய்திகள்")
     except Exception as e:
-        print(f"❌ BBC பிழை: {e}")
-    return news_list
-
+        print(f"❌ BBC Tamil error: {e}")
+    return news_list[:10]
 # ---------- ENGLISH NEWS (BBC World) ----------
 def get_english_news():
     news_list = []
@@ -101,65 +108,46 @@ def get_english_news():
 # ---------- DAILY THANTHI NEWS (Selenium + Fallback) ----------
 def get_dailythanthi_news():
     news_list = []
-    driver = None
     try:
-        options = webdriver.ChromeOptions()
-        options.add_argument('--headless=new')
-        options.add_argument('--no-sandbox')
-        options.add_argument('--disable-dev-shm-usage')
-        options.add_argument('--disable-gpu')
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-        driver.get("https://www.dailythanthi.com/")
-        driver.implicitly_wait(5)
-        elements = driver.find_elements(By.XPATH, "//a[contains(@href, '/news/')]")
-        for element in elements[:10]:
-            title = element.text.strip()
-            link = element.get_attribute('href')
-            if title and len(title) > 20:
-                news_list.append(f"📌 *{title}*\n🔗 [Read more]({link})\n🏷️ *Source:* தினத்தந்தி")
-        print(f"✅ தினத்தந்தி (Selenium) - {len(news_list)} செய்திகள்")
-    except Exception as e:
-        print(f"⚠️ Selenium failed: {e}. Trying requests fallback...")
-        try:
-            url = "https://www.dailythanthi.com/"
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-            response = requests.get(url, headers=headers, timeout=10)
-            soup = BeautifulSoup(response.content, 'html.parser')
-            for a in soup.find_all('a', href=True):
+        url = "https://www.dailythanthi.com/"
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        response = requests.get(url, headers=headers, timeout=15)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Look for all links that contain '/news/'
+        for a in soup.find_all('a', href=True):
+            href = a['href']
+            if '/news/' in href:
                 title = a.get_text(strip=True)
-                href = a['href']
-                if '/news/' in href and len(title) > 20:
+                if title and len(title) > 20:
                     full_url = href if href.startswith('http') else 'https://www.dailythanthi.com' + href
-                    news_list.append(f"📌 *{title}*\n🔗 [Read more]({full_url})\n🏷️ *Source:* தினத்தந்தி (fallback)")
-            print(f"✅ தினத்தந்தி (Requests fallback) - {len(news_list)} செய்திகள்")
-        except Exception as e2:
-            print(f"❌ Both methods failed: {e2}")
-    finally:
-        if driver:
-            driver.quit()
+                    news_list.append(f"📌 *{title}*\n🔗 [Read more]({full_url})\n🏷️ *Source:* தினத்தந்தி")
+        print(f"✅ Daily Thanthi - {len(news_list)} செய்திகள்")
+    except Exception as e:
+        print(f"❌ Daily Thanthi error: {e}")
     return news_list[:10]
 
 # ---------- SPORTS NEWS ----------
 def get_sports_news():
     news_list = []
-    try:
-        feed = feedparser.parse('https://feeds.bbci.co.uk/sport/rss.xml')
-        if feed.entries:
-            for entry in feed.entries[:6]:
-                news_list.append(f"🏏 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* BBC Sport")
-        else:
-            raise Exception("No entries")
-    except:
+    sources = [
+        ('https://feeds.bbci.co.uk/sport/rss.xml', 'BBC Sport'),
+        ('https://www.espn.com/espn/rss/news', 'ESPN'),
+        ('https://rss.nytimes.com/services/xml/rss/nyt/Sports.xml', 'NYT Sports')
+    ]
+    for url, source_name in sources:
         try:
-            feed = feedparser.parse('https://www.espn.com/espn/rss/news')
-            for entry in feed.entries[:6]:
-                news_list.append(f"🏏 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* ESPN")
+            feed = feedparser.parse(url)
+            if feed.entries:
+                for entry in feed.entries[:4]:
+                    news_list.append(f"🏏 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* {source_name}")
+                break  # stop after first successful source
         except:
-            pass
+            continue
     if not news_list:
-        news_list.append("🏏 *Sports News*\nUnable to fetch sports news. Please try again later.")
+        # Ultimate fallback – static message (so button never appears dead)
+        news_list.append("🏏 *Sports News*\nNo sports news right now. Please try again later.")
     return news_list[:8]
-
 # ---------- CINEMA NEWS ----------
 def get_cinema_news():
     news_list = []
