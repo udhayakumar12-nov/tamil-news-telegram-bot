@@ -18,9 +18,11 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 # ---------- CONFIGURATION ----------
-import os
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-ADMIN_ID = 8623813419
+if not BOT_TOKEN:
+    raise ValueError("BOT_TOKEN environment variable not set!")
+
+ADMIN_ID = int(os.environ.get("ADMIN_ID", 8623813419))
 
 # ---------- DATABASE SETUP ----------
 def init_db():
@@ -59,33 +61,30 @@ def get_user_count():
     conn.close()
     return count
 
-# ---------- BBC NEWS ----------
+# ---------- BBC TAMIL NEWS ----------
 def get_bbc_news():
     news_list = []
     try:
         url = "https://www.bbc.com/tamil"
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(url, headers=headers, timeout=10)
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        response = requests.get(url, headers=headers, timeout=15)
         soup = BeautifulSoup(response.content, 'html.parser')
-        headlines = soup.find_all(['h3', 'h2'])
-        
-        for headline in headlines[:10]:
-            link_tag = headline.find('a')
-            if link_tag:
-                title = link_tag.get_text(strip=True)
-                href = link_tag.get('href', '')
-                if title and len(title) > 15:
-                    if href.startswith('/'):
-                        full_url = "https://www.bbc.com" + href
-                    else:
-                        full_url = href
-                    news_list.append(f"📌 *{title}*\n🔗 [Read more]({full_url})\n🏷️ *Source:* பிபிசி தமிழ்")
+        articles = soup.find_all('a', class_='focusIndicatorDisplayBlock')
+        if not articles:
+            articles = soup.find_all('h3')
+        for a in articles[:10]:
+            title = a.get_text(strip=True)
+            href = a.get('href') if a.name == 'a' else (a.find('a').get('href') if a.find('a') else None)
+            if title and len(title) > 15 and href:
+                if not href.startswith('http'):
+                    href = 'https://www.bbc.com' + href
+                news_list.append(f"📌 *{title}*\n🔗 [Read more]({href})\n🏷️ *Source:* பிபிசி தமிழ்")
         print(f"✅ BBC - {len(news_list)} செய்திகள்")
     except Exception as e:
         print(f"❌ BBC பிழை: {e}")
     return news_list
 
-# ---------- ENGLISH NEWS ----------
+# ---------- ENGLISH NEWS (BBC World) ----------
 def get_english_news():
     news_list = []
     try:
@@ -99,7 +98,7 @@ def get_english_news():
         print(f"❌ English RSS error: {e}")
     return news_list
 
-# ---------- DAILY THANTHI NEWS ----------
+# ---------- DAILY THANTHI NEWS (Selenium + Fallback) ----------
 def get_dailythanthi_news():
     news_list = []
     driver = None
@@ -109,27 +108,101 @@ def get_dailythanthi_news():
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--disable-gpu')
-        
         driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
         driver.get("https://www.dailythanthi.com/")
         driver.implicitly_wait(5)
-        
         elements = driver.find_elements(By.XPATH, "//a[contains(@href, '/news/')]")
-        
         for element in elements[:10]:
             title = element.text.strip()
             link = element.get_attribute('href')
             if title and len(title) > 20:
                 news_list.append(f"📌 *{title}*\n🔗 [Read more]({link})\n🏷️ *Source:* தினத்தந்தி")
-        print(f"✅ தினத்தந்தி - {len(news_list)} செய்திகள்")
+        print(f"✅ தினத்தந்தி (Selenium) - {len(news_list)} செய்திகள்")
     except Exception as e:
-        print(f"❌ தினத்தந்தி பிழை: {e}")
+        print(f"⚠️ Selenium failed: {e}. Trying requests fallback...")
+        try:
+            url = "https://www.dailythanthi.com/"
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+            response = requests.get(url, headers=headers, timeout=10)
+            soup = BeautifulSoup(response.content, 'html.parser')
+            for a in soup.find_all('a', href=True):
+                title = a.get_text(strip=True)
+                href = a['href']
+                if '/news/' in href and len(title) > 20:
+                    full_url = href if href.startswith('http') else 'https://www.dailythanthi.com' + href
+                    news_list.append(f"📌 *{title}*\n🔗 [Read more]({full_url})\n🏷️ *Source:* தினத்தந்தி (fallback)")
+            print(f"✅ தினத்தந்தி (Requests fallback) - {len(news_list)} செய்திகள்")
+        except Exception as e2:
+            print(f"❌ Both methods failed: {e2}")
     finally:
         if driver:
             driver.quit()
-    return news_list
+    return news_list[:10]
 
-# ---------- SEARCH FUNCTION ----------
+# ---------- SPORTS NEWS ----------
+def get_sports_news():
+    news_list = []
+    try:
+        feed = feedparser.parse('https://feeds.bbci.co.uk/sport/rss.xml')
+        if feed.entries:
+            for entry in feed.entries[:6]:
+                news_list.append(f"🏏 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* BBC Sport")
+        else:
+            raise Exception("No entries")
+    except:
+        try:
+            feed = feedparser.parse('https://www.espn.com/espn/rss/news')
+            for entry in feed.entries[:6]:
+                news_list.append(f"🏏 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* ESPN")
+        except:
+            pass
+    if not news_list:
+        news_list.append("🏏 *Sports News*\nUnable to fetch sports news. Please try again later.")
+    return news_list[:8]
+
+# ---------- CINEMA NEWS ----------
+def get_cinema_news():
+    news_list = []
+    try:
+        feed = feedparser.parse('https://variety.com/feed/')
+        if feed.entries:
+            for entry in feed.entries[:6]:
+                news_list.append(f"🎬 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Variety")
+        else:
+            raise Exception("No entries")
+    except:
+        try:
+            feed = feedparser.parse('https://www.hollywoodreporter.com/feed/')
+            for entry in feed.entries[:6]:
+                news_list.append(f"🎬 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Hollywood Reporter")
+        except:
+            pass
+    if not news_list:
+        news_list.append("🎬 *Cinema News*\nUnable to fetch cinema news. Please try again later.")
+    return news_list[:8]
+
+# ---------- BUSINESS NEWS ----------
+def get_business_news():
+    news_list = []
+    try:
+        feed = feedparser.parse('https://feeds.reuters.com/reuters/businessNews')
+        if feed.entries:
+            for entry in feed.entries[:6]:
+                news_list.append(f"💰 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Reuters")
+        else:
+            raise Exception("No entries")
+    except:
+        try:
+            feed = feedparser.parse('https://feeds.bbci.co.uk/news/business/rss.xml')
+            for entry in feed.entries[:6]:
+                news_list.append(f"💰 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* BBC Business")
+        except:
+            pass
+    if not news_list:
+        news_list.append("💰 *Business News*\nUnable to fetch business news. Please try again later.")
+    return news_list[:8]
+
+# ---------- SEARCH ----------
 def search_news(keyword):
     all_news = get_bbc_news() + get_dailythanthi_news()
     filtered = [news for news in all_news if keyword.lower() in news.lower()]
@@ -185,7 +258,7 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(chat_id=chat_id, text=message_text)
             success_count += 1
             await asyncio.sleep(0.05)
-        except Exception as e:
+        except:
             fail_count += 1
     await status_msg.edit_text(
         f"✅ Broadcast முடிந்தது!\n\n"
@@ -196,13 +269,7 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def get_news(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("📰 செய்திகள் சேகரிக்கப்படுகிறது. சிறிது பொறுக்கவும்...")
-    
-    all_news = []
-    bbc_news = get_bbc_news()
-    dt_news = get_dailythanthi_news()
-    all_news.extend(bbc_news)
-    all_news.extend(dt_news)
-    
+    all_news = get_bbc_news() + get_dailythanthi_news()
     if all_news:
         message = "📰 *பல தள செய்திகள்:*\n\n" + "\n\n".join(all_news[:15])
         await update.message.reply_text(message, parse_mode='Markdown')
@@ -214,16 +281,15 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not keyword:
         await update.message.reply_text("🔍 *Usage:* /search <keyword>\n\nExample: /search தேர்தல்", parse_mode='Markdown')
         return
-    
     await update.message.reply_text(f"🔍 *Searching for '{keyword}'...*", parse_mode='Markdown')
     filtered = search_news(keyword)
-    
     if filtered:
         message = "🔎 *Search Results:*\n\n" + "\n\n".join(filtered[:10])
         await update.message.reply_text(message, parse_mode='Markdown')
     else:
         await update.message.reply_text(f"❌ *No results found for '{keyword}'.*", parse_mode='Markdown')
 
+# ---------- CATEGORY MENU ----------
 async def news_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("📰 தமிழ் செய்திகள்", callback_data='tamil_news')],
@@ -240,26 +306,58 @@ async def news_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='Markdown'
     )
 
+# ---------- BUTTON HANDLER (FIXED: No get_news call) ----------
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    
     category = query.data
-    
+
     if category == 'tamil_news':
-        await get_news(update, context)
+        await query.edit_message_text("📰 தமிழ் செய்திகள் சேகரிக்கப்படுகிறது. சிறிது பொறுக்கவும்...")
+        all_news = get_bbc_news() + get_dailythanthi_news()
+        if all_news:
+            message = "📰 *பல தள செய்திகள்:*\n\n" + "\n\n".join(all_news[:15])
+            await query.message.reply_text(message, parse_mode='Markdown')
+        else:
+            await query.message.reply_text("❌ எந்த தளத்திலிருந்தும் செய்திகள் கிடைக்கவில்லை.")
     elif category == 'english_news':
+        await query.edit_message_text("🌍 English news fetching...")
         english_news = get_english_news()
         if english_news:
             message = "🌍 *World News (English):*\n\n" + "\n\n".join(english_news[:8])
             await query.message.reply_text(message, parse_mode='Markdown')
         else:
             await query.message.reply_text("❌ English news unavailable.")
+    elif category == 'sports_news':
+        await query.edit_message_text("🏏 Sports news fetching...")
+        sports_news = get_sports_news()
+        if sports_news and not sports_news[0].startswith("🏏 *Sports News*\\nUnable"):
+            message = "🏏 *Sports News:*\n\n" + "\n\n".join(sports_news)
+            await query.message.reply_text(message, parse_mode='Markdown')
+        else:
+            await query.message.reply_text("🏏 Sports news unavailable. Try again later.")
+    elif category == 'cinema_news':
+        await query.edit_message_text("🎬 Cinema news fetching...")
+        cinema_news = get_cinema_news()
+        if cinema_news and not cinema_news[0].startswith("🎬 *Cinema News*\\nUnable"):
+            message = "🎬 *Cinema News:*\n\n" + "\n\n".join(cinema_news)
+            await query.message.reply_text(message, parse_mode='Markdown')
+        else:
+            await query.message.reply_text("🎬 Cinema news unavailable. Try again later.")
+    elif category == 'business_news':
+        await query.edit_message_text("💰 Business news fetching...")
+        business_news = get_business_news()
+        if business_news and not business_news[0].startswith("💰 *Business News*\\nUnable"):
+            message = "💰 *Business News:*\n\n" + "\n\n".join(business_news)
+            await query.message.reply_text(message, parse_mode='Markdown')
+        else:
+            await query.message.reply_text("💰 Business news unavailable. Try again later.")
     elif category == 'search_news':
-        await query.message.reply_text("🔍 Send /search <keyword> (e.g., /search தேர்தல்)")
+        await query.edit_message_text("🔍 *Search Feature*\n\nSend /search <keyword>\n\nExample: /search தேர்தல்", parse_mode='Markdown')
     else:
-        await query.message.reply_text(f"⏳ '{category}' category coming soon!")
+        await query.edit_message_text(f"⏳ '{category}' category coming soon!")
 
+# ---------- AUTO-POST ----------
 async def auto_post_morning(app):
     users = get_all_users()
     if not users:
@@ -293,9 +391,9 @@ def main():
     init_db()
     print("🤖 Multi-Source News Broadcast Bot இயங்குகிறது...")
     print(f"👥 Total users in DB: {get_user_count()}")
-    
+
     app = Application.builder().token(BOT_TOKEN).build()
-    
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("menu", news_menu))
     app.add_handler(CommandHandler("news", get_news))
@@ -304,14 +402,31 @@ def main():
     app.add_handler(CommandHandler("broadcast", broadcast))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CallbackQueryHandler(button_handler))
-    
-    scheduler = AsyncIOScheduler(timezone='Asia/Kolkata')
-    scheduler.add_job(auto_post_morning, CronTrigger(hour=8, minute=0), args=[app])
-    scheduler.add_job(auto_post_evening, CronTrigger(hour=18, minute=0), args=[app])
-    scheduler.start()
-    print("✅ Scheduler started! Auto-post at 8:00 AM & 6:00 PM IST")
-    
-    app.run_polling()
+
+    # Run async
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    async def run():
+        await app.bot.delete_webhook(drop_pending_updates=True)
+        print("✅ Webhook cleared.")
+
+        scheduler = AsyncIOScheduler(timezone='Asia/Kolkata')
+        scheduler.add_job(auto_post_morning, CronTrigger(hour=8, minute=0), args=[app])
+        scheduler.add_job(auto_post_evening, CronTrigger(hour=18, minute=0), args=[app])
+        scheduler.start()
+        print("✅ Scheduler started! Auto-post at 8:00 AM & 6:00 PM IST")
+
+        await app.initialize()
+        await app.start()
+        await app.updater.start_polling()
+
+        try:
+            await asyncio.get_event_loop().create_future()
+        except:
+            pass
+
+    loop.run_until_complete(run())
 
 if __name__ == "__main__":
     main()
