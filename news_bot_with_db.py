@@ -6,6 +6,7 @@ import csv
 import sqlite3
 import requests
 import feedparser
+import json
 from datetime import datetime
 from bs4 import BeautifulSoup
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -57,10 +58,10 @@ def get_user_count():
     conn.close()
     return count
 
-# ---------- 1. TAMIL NEWS (BBC, Daily Thanthi, The Hindu, Puthiya Thalaimurai) ----------
+# ---------- 1. TAMIL NEWS (BBC, Daily Thanthi, The Hindu, Dinamalar) ----------
 def get_tamil_news():
     all_news = []
-    # BBC Tamil
+    # 1. BBC Tamil
     try:
         url = "https://www.bbc.com/tamil"
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
@@ -79,7 +80,7 @@ def get_tamil_news():
     except Exception as e:
         print(f"⚠️ BBC Tamil error: {e}")
 
-    # Daily Thanthi
+    # 2. Daily Thanthi
     try:
         url = "https://www.dailythanthi.com/"
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
@@ -97,7 +98,7 @@ def get_tamil_news():
     except Exception as e:
         print(f"⚠️ Daily Thanthi error: {e}")
 
-    # The Hindu Tamil (RSS)
+    # 3. The Hindu Tamil (RSS)
     try:
         feed = feedparser.parse('https://www.thehindu.com/news/national/tamil-nadu/?service=rss')
         for entry in feed.entries[:5]:
@@ -105,13 +106,13 @@ def get_tamil_news():
     except Exception as e:
         print(f"⚠️ The Hindu Tamil error: {e}")
 
-    # Puthiya Thalaimurai (RSS)
+    # 4. Dinamalar (Alternative Tamil source)
     try:
-        feed = feedparser.parse('https://www.puthiyathalaimurai.com/rss')
+        feed = feedparser.parse('https://www.dinamalar.com/rss/tamilnadu.xml')
         for entry in feed.entries[:5]:
-            all_news.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Puthiya Thalaimurai")
+            all_news.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Dinamalar")
     except Exception as e:
-        print(f"⚠️ Puthiya Thalaimurai error: {e}")
+        print(f"⚠️ Dinamalar error: {e}")
 
     if not all_news:
         all_news.append("📰 *தமிழ் செய்திகள்*\nஇப்போது செய்திகள் எதுவும் கிடைக்கவில்லை.")
@@ -121,7 +122,7 @@ def get_tamil_news():
 # ---------- 2. ENGLISH WORLD NEWS (BBC, Reuters, Guardian, Al Jazeera) ----------
 def get_english_news():
     all_news = []
-    # BBC World
+    # 1. BBC World
     try:
         feed = feedparser.parse('https://feeds.bbci.co.uk/news/world/rss.xml')
         for entry in feed.entries[:5]:
@@ -129,7 +130,7 @@ def get_english_news():
     except Exception as e:
         print(f"⚠️ BBC World error: {e}")
 
-    # Reuters World
+    # 2. Reuters World (Fixed URL)
     try:
         feed = feedparser.parse('http://feeds.reuters.com/reuters/worldNews')
         for entry in feed.entries[:5]:
@@ -137,7 +138,7 @@ def get_english_news():
     except Exception as e:
         print(f"⚠️ Reuters World error: {e}")
 
-    # The Guardian World
+    # 3. The Guardian World
     try:
         feed = feedparser.parse('https://www.theguardian.com/world/rss')
         for entry in feed.entries[:5]:
@@ -145,7 +146,7 @@ def get_english_news():
     except Exception as e:
         print(f"⚠️ Guardian error: {e}")
 
-    # Al Jazeera
+    # 4. Al Jazeera
     try:
         feed = feedparser.parse('https://www.aljazeera.com/xml/rss/all.xml')
         for entry in feed.entries[:5]:
@@ -161,7 +162,7 @@ def get_english_news():
 # ---------- 3. SPORTS NEWS (BBC, Sky Sports, ESPN, NYT Sports) ----------
 def get_sports_news():
     all_news = []
-    # BBC Sport
+    # 1. BBC Sport
     try:
         feed = feedparser.parse('https://feeds.bbci.co.uk/sport/rss.xml')
         for entry in feed.entries[:5]:
@@ -169,7 +170,7 @@ def get_sports_news():
     except Exception as e:
         print(f"⚠️ BBC Sport error: {e}")
 
-    # Sky Sports
+    # 2. Sky Sports
     try:
         feed = feedparser.parse('http://feeds.skynews.com/feeds/rss/sports.xml')
         for entry in feed.entries[:5]:
@@ -177,7 +178,7 @@ def get_sports_news():
     except Exception as e:
         print(f"⚠️ Sky Sports error: {e}")
 
-    # ESPN
+    # 3. ESPN
     try:
         feed = feedparser.parse('https://www.espn.com/espn/rss/news')
         for entry in feed.entries[:5]:
@@ -185,7 +186,7 @@ def get_sports_news():
     except Exception as e:
         print(f"⚠️ ESPN error: {e}")
 
-    # NYT Sports
+    # 4. NYT Sports
     try:
         feed = feedparser.parse('https://rss.nytimes.com/services/xml/rss/nyt/Sports.xml')
         for entry in feed.entries[:5]:
@@ -201,7 +202,7 @@ def get_sports_news():
 # ---------- 4. BUSINESS NEWS (Reuters, BBC Business, Bloomberg, Financial Times) ----------
 def get_business_news():
     all_news = []
-    # Reuters Business
+    # 1. Reuters Business
     try:
         feed = feedparser.parse('http://feeds.reuters.com/reuters/businessNews')
         for entry in feed.entries[:5]:
@@ -209,7 +210,7 @@ def get_business_news():
     except Exception as e:
         print(f"⚠️ Reuters Business error: {e}")
 
-    # BBC Business
+    # 2. BBC Business
     try:
         feed = feedparser.parse('https://feeds.bbci.co.uk/news/business/rss.xml')
         for entry in feed.entries[:5]:
@@ -217,7 +218,7 @@ def get_business_news():
     except Exception as e:
         print(f"⚠️ BBC Business error: {e}")
 
-    # Bloomberg Markets
+    # 3. Bloomberg Markets
     try:
         feed = feedparser.parse('https://feeds.bloomberg.com/markets/news.rss')
         for entry in feed.entries[:5]:
@@ -225,7 +226,7 @@ def get_business_news():
     except Exception as e:
         print(f"⚠️ Bloomberg error: {e}")
 
-    # Financial Times
+    # 4. Financial Times
     try:
         feed = feedparser.parse('https://www.ft.com/?format=rss')
         for entry in feed.entries[:5]:
@@ -241,7 +242,7 @@ def get_business_news():
 # ---------- 5. CINEMA NEWS (Variety, Hollywood Reporter, Empire, Deadline) ----------
 def get_cinema_news():
     all_news = []
-    # Variety
+    # 1. Variety
     try:
         feed = feedparser.parse('https://variety.com/feed/')
         for entry in feed.entries[:5]:
@@ -249,7 +250,7 @@ def get_cinema_news():
     except Exception as e:
         print(f"⚠️ Variety error: {e}")
 
-    # Hollywood Reporter
+    # 2. Hollywood Reporter
     try:
         feed = feedparser.parse('https://www.hollywoodreporter.com/feed/')
         for entry in feed.entries[:5]:
@@ -257,7 +258,7 @@ def get_cinema_news():
     except Exception as e:
         print(f"⚠️ Hollywood Reporter error: {e}")
 
-    # Empire Online
+    # 3. Empire Online
     try:
         feed = feedparser.parse('https://www.empireonline.com/feed/')
         for entry in feed.entries[:5]:
@@ -265,7 +266,7 @@ def get_cinema_news():
     except Exception as e:
         print(f"⚠️ Empire error: {e}")
 
-    # Deadline
+    # 4. Deadline
     try:
         feed = feedparser.parse('https://deadline.com/feed/')
         for entry in feed.entries[:5]:
@@ -277,6 +278,61 @@ def get_cinema_news():
         all_news.append("🎬 *Cinema News*\nNo cinema news available. Try again later.")
     print(f"✅ Cinema News - {len(all_news)} செய்திகள்")
     return all_news[:12]
+
+# ---------- 6. WEATHER NEWS (Open-Meteo API - No API Key Required) ----------
+def get_weather(city):
+    try:
+        # 1. Geocode the city name to get latitude and longitude
+        geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={city}&count=1&language=en&format=json"
+        geo_response = requests.get(geo_url, timeout=10)
+        geo_data = geo_response.json()
+        if not geo_data.get("results"):
+            return f"❌ *Weather Unavailable*\nCould not find coordinates for '{city}'. Please check the city name."
+
+        lat = geo_data["results"][0]["latitude"]
+        lon = geo_data["results"][0]["longitude"]
+        city_name = geo_data["results"][0]["name"]
+        country = geo_data["results"][0].get("country", "")
+
+        # 2. Get current weather
+        weather_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true&timezone=auto"
+        weather_response = requests.get(weather_url, timeout=10)
+        weather_data = weather_response.json()
+
+        if "current_weather" not in weather_data:
+            return f"❌ *Weather Unavailable*\nCould not fetch weather for '{city}'."
+
+        current = weather_data["current_weather"]
+        temp = current["temperature"]
+        windspeed = current["windspeed"]
+        weather_code = current.get("weathercode", 0)
+
+        # Simple weather description based on weather code
+        weather_codes = {
+            0: "Clear sky",
+            1: "Mainly clear",
+            2: "Partly cloudy",
+            3: "Overcast",
+            45: "Fog",
+            51: "Light drizzle",
+            61: "Rain",
+            71: "Snow fall",
+            80: "Rain showers"
+        }
+        description = weather_codes.get(weather_code, "Unknown")
+
+        # Format the message
+        weather_msg = (
+            f"🌦️ *Weather for {city_name}, {country}*\n"
+            f"🌡️ *Temperature:* {temp}°C\n"
+            f"💨 *Wind Speed:* {windspeed} km/h\n"
+            f"☁️ *Condition:* {description}"
+        )
+        return weather_msg
+
+    except Exception as e:
+        print(f"⚠️ Weather error: {e}")
+        return f"❌ *Weather Unavailable*\nAn error occurred while fetching weather for '{city}'. Please try again later."
 
 # ---------- SEARCH (Tamil only, you can extend) ----------
 def search_news(keyword):
@@ -292,6 +348,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"வணக்கம் {user.first_name}! 👋\n\n"
         "நீங்கள் எங்கள் செய்திச் சேவையில் பதிவு செய்யப்பட்டுள்ளீர்கள்!\n\n"
         "📰 /menu - செய்தி வகைகளைப் பார்க்க\n"
+        "🌦️ /weather <city> - வானிலை தகவல்\n"
         "🔍 /search <keyword> - செய்திகளைத் தேட\n"
         "👥 /stats - மொத்த subscribers (Admin only)\n"
         "📢 /broadcast - அனைவருக்கும் செய்தி (Admin only)\n"
@@ -304,6 +361,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/start - Bot-ஐ தொடங்க\n"
         "/menu - செய்தி வகைகளைப் பார்க்க\n"
         "/news - உடனடிச் செய்திகள்\n"
+        "/weather <city> - வானிலை தகவல்\n"
         "/search <keyword> - செய்திகளைத் தேட\n"
         "/stats - மொத்த subscribers (Admin only)\n"
         "/broadcast - அனைவருக்கும் செய்தி (Admin only)\n"
@@ -365,6 +423,24 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(f"❌ *No results found for '{keyword}'.*", parse_mode='Markdown')
 
+# ---------- WEATHER COMMAND ----------
+async def weather_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Check if city name is provided
+    if not context.args:
+        await update.message.reply_text(
+            "🌦️ *Usage:* /weather <city>\n\n"
+            "Example: `/weather London` or `/weather Chennai`",
+            parse_mode='Markdown'
+        )
+        return
+
+    city = " ".join(context.args)
+    await update.message.reply_text(f"🌦️ *Fetching weather for {city}...*", parse_mode='Markdown')
+
+    # Get weather data
+    weather_info = get_weather(city)
+    await update.message.reply_text(weather_info, parse_mode='Markdown')
+
 # ---------- CATEGORY MENU ----------
 async def news_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
@@ -373,6 +449,7 @@ async def news_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🏏 விளையாட்டு", callback_data='sports_news')],
         [InlineKeyboardButton("🎬 சினிமா", callback_data='cinema_news')],
         [InlineKeyboardButton("💰 பொருளாதாரம்", callback_data='business_news')],
+        [InlineKeyboardButton("🌦️ வானிலை", callback_data='weather_news')],
         [InlineKeyboardButton("🔍 தேடு (Search)", callback_data='search_news')],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -427,6 +504,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.reply_text(message, parse_mode='Markdown')
         else:
             await query.message.reply_text("💰 Business news unavailable. Try again later.")
+    elif category == 'weather_news':
+        # For weather button, show usage instructions
+        await query.edit_message_text(
+            "🌦️ *Weather Feature*\n\n"
+            "You can get current weather for any city using the `/weather` command.\n\n"
+            "Example: `/weather Chennai` or `/weather New York`",
+            parse_mode='Markdown'
+        )
     elif category == 'search_news':
         await query.edit_message_text("🔍 *Search Feature*\n\nSend /search <keyword>\n\nExample: /search தேர்தல்", parse_mode='Markdown')
     else:
@@ -472,6 +557,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("menu", news_menu))
     app.add_handler(CommandHandler("news", get_news))
+    app.add_handler(CommandHandler("weather", weather_command))  # New weather command
     app.add_handler(CommandHandler("search", search_command))
     app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("broadcast", broadcast))
