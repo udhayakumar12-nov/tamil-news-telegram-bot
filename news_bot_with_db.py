@@ -64,7 +64,7 @@ def get_user_count():
 # ---------- BBC TAMIL NEWS ----------
 def get_bbc_news():
     news_list = []
-    # முதல் முயற்சி: BBC Tamil (primary)
+    # 1. BBC Tamil
     try:
         url = "https://www.bbc.com/tamil"
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
@@ -73,25 +73,24 @@ def get_bbc_news():
         articles = soup.find_all('a', class_='focusIndicatorDisplayBlock')
         if not articles:
             articles = soup.find_all('h3')
-        for a in articles[:8]:
+        for a in articles[:4]:
             title = a.get_text(strip=True)
             href = a.get('href') if a.name == 'a' else (a.find('a').get('href') if a.find('a') else None)
             if title and len(title) > 15 and href:
                 if not href.startswith('http'):
                     href = 'https://www.bbc.com' + href
                 news_list.append(f"📌 *{title}*\n🔗 [Read more]({href})\n🏷️ *Source:* BBC Tamil")
-        if news_list:
-            print(f"✅ BBC Tamil - {len(news_list)} செய்திகள்")
-            return news_list[:10]
+        print(f"✅ BBC Tamil - {len(news_list[:4])} செய்திகள்")
     except Exception as e:
         print(f"⚠️ BBC Tamil error: {e}")
 
-    # இரண்டாம் முயற்சி: Daily Thanthi (via requests, no Selenium)
+    # 2. Daily Thanthi
     try:
         url = "https://www.dailythanthi.com/"
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
         response = requests.get(url, headers=headers, timeout=15)
         soup = BeautifulSoup(response.text, 'html.parser')
+        count = 0
         for a in soup.find_all('a', href=True):
             href = a['href']
             if '/news/' in href:
@@ -99,91 +98,76 @@ def get_bbc_news():
                 if title and len(title) > 20:
                     full_url = href if href.startswith('http') else 'https://www.dailythanthi.com' + href
                     news_list.append(f"📌 *{title}*\n🔗 [Read more]({full_url})\n🏷️ *Source:* தினத்தந்தி")
-        if news_list:
-            print(f"✅ Daily Thanthi - {len(news_list)} செய்திகள்")
-            return news_list[:10]
+                    count += 1
+                    if count >= 4:
+                        break
+        print(f"✅ Daily Thanthi - {count} செய்திகள்")
     except Exception as e:
         print(f"⚠️ Daily Thanthi error: {e}")
 
-    # மூன்றாம் முயற்சி: The Hindu Tamil (RSS)
+    # 3. The Hindu Tamil RSS
     try:
         feed = feedparser.parse('https://www.thehindu.com/news/national/tamil-nadu/?service=rss')
-        if feed.entries:
-            for entry in feed.entries[:5]:
-                news_list.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* The Hindu Tamil")
-            print(f"✅ The Hindu Tamil - {len(news_list)} செய்திகள்")
-            return news_list[:10]
+        for entry in feed.entries[:4]:
+            news_list.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* The Hindu Tamil")
+        print(f"✅ The Hindu Tamil - {len(feed.entries[:4])} செய்திகள்")
     except Exception as e:
-        print(f"⚠️ The Hindu Tamil RSS error: {e}")
+        print(f"⚠️ The Hindu RSS error: {e}")
 
-    # நான்காம் முயற்சி: Puthiya Thalaimurai (RSS) - fallback
+    # 4. Puthiya Thalaimurai RSS
     try:
         feed = feedparser.parse('https://www.puthiyathalaimurai.com/rss')
-        if feed.entries:
-            for entry in feed.entries[:5]:
-                news_list.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Puthiya Thalaimurai")
-            print(f"✅ Puthiya Thalaimurai - {len(news_list)} செய்திகள்")
-            return news_list[:10]
+        for entry in feed.entries[:4]:
+            news_list.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Puthiya Thalaimurai")
+        print(f"✅ Puthiya Thalaimurai - {len(feed.entries[:4])} செய்திகள்")
     except Exception as e:
         print(f"⚠️ Puthiya Thalaimurai RSS error: {e}")
 
     if not news_list:
-        news_list.append("📰 *தமிழ் செய்திகள்*\nஇப்போது செய்திகள் எதுவும் கிடைக்கவில்லை. சிறிது நேரத்தில் மீண்டும் முயற்சிக்கவும்.")
-    return news_list[:10]
+        news_list.append("📰 *தமிழ் செய்திகள்*\nஇப்போது செய்திகள் எதுவும் கிடைக்கவில்லை.")
+    return news_list[:15]
 # ---------- ENGLISH NEWS (BBC World) ----------
 def get_english_news():
     news_list = []
-    # முதல் முயற்சி: BBC World (primary)
+    # 1. BBC World
     try:
         feed = feedparser.parse('https://feeds.bbci.co.uk/news/world/rss.xml')
-        if feed.entries:
-            for entry in feed.entries[:5]:
-                news_list.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* BBC World")
-            if news_list:
-                print(f"✅ BBC World - {len(news_list)} செய்திகள்")
-                return news_list[:8]
+        for entry in feed.entries[:4]:
+            news_list.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* BBC World")
+        print(f"✅ BBC World - {len(feed.entries[:4])} செய்திகள்")
     except Exception as e:
         print(f"⚠️ BBC World RSS error: {e}")
 
-    # இரண்டாம் முயற்சி: Reuters World
+    # 2. Reuters World
     try:
         feed = feedparser.parse('http://feeds.reuters.com/reuters/worldNews')
-        if feed.entries:
-            for entry in feed.entries[:5]:
-                news_list.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Reuters")
-            if news_list:
-                print(f"✅ Reuters World - {len(news_list)} செய்திகள்")
-                return news_list[:8]
+        for entry in feed.entries[:4]:
+            news_list.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Reuters")
+        print(f"✅ Reuters World - {len(feed.entries[:4])} செய்திகள்")
     except Exception as e:
         print(f"⚠️ Reuters World RSS error: {e}")
 
-    # மூன்றாம் முயற்சி: Al Jazeera
+    # 3. Al Jazeera
     try:
         feed = feedparser.parse('https://www.aljazeera.com/xml/rss/all.xml')
-        if feed.entries:
-            for entry in feed.entries[:5]:
-                news_list.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Al Jazeera")
-            if news_list:
-                print(f"✅ Al Jazeera - {len(news_list)} செய்திகள்")
-                return news_list[:8]
+        for entry in feed.entries[:4]:
+            news_list.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Al Jazeera")
+        print(f"✅ Al Jazeera - {len(feed.entries[:4])} செய்திகள்")
     except Exception as e:
         print(f"⚠️ Al Jazeera RSS error: {e}")
 
-    # நான்காம் முயற்சி: The Guardian World
+    # 4. The Guardian World
     try:
         feed = feedparser.parse('https://www.theguardian.com/world/rss')
-        if feed.entries:
-            for entry in feed.entries[:5]:
-                news_list.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* The Guardian")
-            if news_list:
-                print(f"✅ The Guardian - {len(news_list)} செய்திகள்")
-                return news_list[:8]
+        for entry in feed.entries[:4]:
+            news_list.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* The Guardian")
+        print(f"✅ The Guardian - {len(feed.entries[:4])} செய்திகள்")
     except Exception as e:
         print(f"⚠️ The Guardian RSS error: {e}")
 
     if not news_list:
-        news_list.append("🌍 *World News*\nNo news available at the moment. Please try again later.")
-    return news_list[:8]
+        news_list.append("🌍 *World News*\nNo news available. Please try again later.")
+    return news_list[:15]
 # ---------- DAILY THANTHI NEWS (Selenium + Fallback) ----------
 def get_dailythanthi_news():
     news_list = []
@@ -209,165 +193,129 @@ def get_dailythanthi_news():
 # ---------- SPORTS NEWS ----------
 def get_sports_news():
     news_list = []
-    # முதல் முயற்சி: BBC Sport
+    # 1. BBC Sport
     try:
         feed = feedparser.parse('https://feeds.bbci.co.uk/sport/rss.xml')
-        if feed.entries:
-            for entry in feed.entries[:5]:
-                news_list.append(f"🏏 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* BBC Sport")
-            if news_list:
-                print(f"✅ BBC Sport - {len(news_list)} செய்திகள்")
-                return news_list[:8]
+        for entry in feed.entries[:4]:
+            news_list.append(f"🏏 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* BBC Sport")
+        print(f"✅ BBC Sport - {len(feed.entries[:4])} செய்திகள்")
     except Exception as e:
         print(f"⚠️ BBC Sport RSS error: {e}")
 
-    # இரண்டாம் முயற்சி: Sky Sports (more reliable)
+    # 2. Sky Sports
     try:
         feed = feedparser.parse('http://feeds.skynews.com/feeds/rss/sports.xml')
-        if feed.entries:
-            for entry in feed.entries[:5]:
-                news_list.append(f"🏏 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Sky Sports")
-            if news_list:
-                print(f"✅ Sky Sports - {len(news_list)} செய்திகள்")
-                return news_list[:8]
+        for entry in feed.entries[:4]:
+            news_list.append(f"🏏 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Sky Sports")
+        print(f"✅ Sky Sports - {len(feed.entries[:4])} செய்திகள்")
     except Exception as e:
         print(f"⚠️ Sky Sports RSS error: {e}")
 
-    # மூன்றாம் முயற்சி: ESPN
+    # 3. ESPN
     try:
         feed = feedparser.parse('https://www.espn.com/espn/rss/news')
-        if feed.entries:
-            for entry in feed.entries[:5]:
-                news_list.append(f"🏏 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* ESPN")
-            if news_list:
-                print(f"✅ ESPN - {len(news_list)} செய்திகள்")
-                return news_list[:8]
+        for entry in feed.entries[:4]:
+            news_list.append(f"🏏 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* ESPN")
+        print(f"✅ ESPN - {len(feed.entries[:4])} செய்திகள்")
     except Exception as e:
         print(f"⚠️ ESPN RSS error: {e}")
 
-    # நான்காம் முயற்சி: NYT Sports
+    # 4. NYT Sports
     try:
         feed = feedparser.parse('https://rss.nytimes.com/services/xml/rss/nyt/Sports.xml')
-        if feed.entries:
-            for entry in feed.entries[:5]:
-                news_list.append(f"🏏 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* NYT Sports")
-            if news_list:
-                print(f"✅ NYT Sports - {len(news_list)} செய்திகள்")
-                return news_list[:8]
+        for entry in feed.entries[:4]:
+            news_list.append(f"🏏 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* NYT Sports")
+        print(f"✅ NYT Sports - {len(feed.entries[:4])} செய்திகள்")
     except Exception as e:
         print(f"⚠️ NYT Sports RSS error: {e}")
 
     if not news_list:
-        news_list.append("🏏 *Sports News*\nUnable to fetch sports news. Please try again later.")
-    return news_list[:8]
+        news_list.append("🏏 *Sports News*\nNo sports news available. Try again later.")
+    return news_list[:15]
 # ---------- CINEMA NEWS ----------
 def get_cinema_news():
     news_list = []
-    # முதல் முயற்சி: Variety (working)
+    # 1. Variety
     try:
         feed = feedparser.parse('https://variety.com/feed/')
-        if feed.entries:
-            for entry in feed.entries[:5]:
-                news_list.append(f"🎬 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Variety")
-            if news_list:
-                print(f"✅ Variety - {len(news_list)} செய்திகள்")
-                return news_list[:8]
+        for entry in feed.entries[:4]:
+            news_list.append(f"🎬 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Variety")
+        print(f"✅ Variety - {len(feed.entries[:4])} செய்திகள்")
     except Exception as e:
         print(f"⚠️ Variety RSS error: {e}")
 
-    # இரண்டாம் முயற்சி: Hollywood Reporter (working fallback)
+    # 2. Hollywood Reporter
     try:
         feed = feedparser.parse('https://www.hollywoodreporter.com/feed/')
-        if feed.entries:
-            for entry in feed.entries[:5]:
-                news_list.append(f"🎬 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Hollywood Reporter")
-            if news_list:
-                print(f"✅ Hollywood Reporter - {len(news_list)} செய்திகள்")
-                return news_list[:8]
+        for entry in feed.entries[:4]:
+            news_list.append(f"🎬 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Hollywood Reporter")
+        print(f"✅ Hollywood Reporter - {len(feed.entries[:4])} செய்திகள்")
     except Exception as e:
         print(f"⚠️ Hollywood Reporter RSS error: {e}")
 
-    # மூன்றாம் முயற்சி: Empire Online
+    # 3. Empire Online
     try:
         feed = feedparser.parse('https://www.empireonline.com/feed/')
-        if feed.entries:
-            for entry in feed.entries[:5]:
-                news_list.append(f"🎬 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Empire")
-            if news_list:
-                print(f"✅ Empire - {len(news_list)} செய்திகள்")
-                return news_list[:8]
+        for entry in feed.entries[:4]:
+            news_list.append(f"🎬 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Empire")
+        print(f"✅ Empire - {len(feed.entries[:4])} செய்திகள்")
     except Exception as e:
         print(f"⚠️ Empire RSS error: {e}")
 
-    # நான்காம் முயற்சி: Deadline Hollywood
+    # 4. Deadline
     try:
         feed = feedparser.parse('https://deadline.com/feed/')
-        if feed.entries:
-            for entry in feed.entries[:5]:
-                news_list.append(f"🎬 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Deadline")
-            if news_list:
-                print(f"✅ Deadline - {len(news_list)} செய்திகள்")
-                return news_list[:8]
+        for entry in feed.entries[:4]:
+            news_list.append(f"🎬 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Deadline")
+        print(f"✅ Deadline - {len(feed.entries[:4])} செய்திகள்")
     except Exception as e:
         print(f"⚠️ Deadline RSS error: {e}")
 
     if not news_list:
         news_list.append("🎬 *Cinema News*\nNo cinema news available. Try again later.")
-    return news_list[:8]
+    return news_list[:15]
 # ---------- BUSINESS NEWS ----------
 def get_business_news():
     news_list = []
-    # முதல் முயற்சி: Reuters (very reliable)
+    # 1. Reuters Business
     try:
         feed = feedparser.parse('http://feeds.reuters.com/reuters/businessNews')
-        if feed.entries:
-            for entry in feed.entries[:5]:
-                news_list.append(f"💰 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Reuters")
-            if news_list:
-                print(f"✅ Reuters Business - {len(news_list)} செய்திகள்")
-                return news_list[:8]
+        for entry in feed.entries[:4]:
+            news_list.append(f"💰 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Reuters")
+        print(f"✅ Reuters Business - {len(feed.entries[:4])} செய்திகள்")
     except Exception as e:
         print(f"⚠️ Reuters RSS error: {e}")
 
-    # இரண்டாம் முயற்சி: BBC Business
+    # 2. BBC Business
     try:
         feed = feedparser.parse('https://feeds.bbci.co.uk/news/business/rss.xml')
-        if feed.entries:
-            for entry in feed.entries[:5]:
-                news_list.append(f"💰 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* BBC Business")
-            if news_list:
-                print(f"✅ BBC Business - {len(news_list)} செய்திகள்")
-                return news_list[:8]
+        for entry in feed.entries[:4]:
+            news_list.append(f"💰 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* BBC Business")
+        print(f"✅ BBC Business - {len(feed.entries[:4])} செய்திகள்")
     except Exception as e:
         print(f"⚠️ BBC Business RSS error: {e}")
 
-    # மூன்றாம் முயற்சி: Bloomberg Markets
+    # 3. Bloomberg Markets
     try:
         feed = feedparser.parse('https://feeds.bloomberg.com/markets/news.rss')
-        if feed.entries:
-            for entry in feed.entries[:5]:
-                news_list.append(f"💰 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Bloomberg")
-            if news_list:
-                print(f"✅ Bloomberg Markets - {len(news_list)} செய்திகள்")
-                return news_list[:8]
+        for entry in feed.entries[:4]:
+            news_list.append(f"💰 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Bloomberg")
+        print(f"✅ Bloomberg Markets - {len(feed.entries[:4])} செய்திகள்")
     except Exception as e:
         print(f"⚠️ Bloomberg RSS error: {e}")
 
-    # நான்காம் முயற்சி: Financial Times
+    # 4. Financial Times
     try:
         feed = feedparser.parse('https://www.ft.com/?format=rss')
-        if feed.entries:
-            for entry in feed.entries[:5]:
-                news_list.append(f"💰 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Financial Times")
-            if news_list:
-                print(f"✅ Financial Times - {len(news_list)} செய்திகள்")
-                return news_list[:8]
+        for entry in feed.entries[:4]:
+            news_list.append(f"💰 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Financial Times")
+        print(f"✅ Financial Times - {len(feed.entries[:4])} செய்திகள்")
     except Exception as e:
         print(f"⚠️ Financial Times RSS error: {e}")
 
     if not news_list:
         news_list.append("💰 *Business News*\nNo business news available. Try again later.")
-    return news_list[:8]
+    return news_list[:15]
 # ---------- SEARCH ----------
 def search_news(keyword):
     all_news = get_bbc_news() + get_dailythanthi_news()
