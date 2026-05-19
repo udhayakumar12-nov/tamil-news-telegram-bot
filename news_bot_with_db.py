@@ -8,10 +8,6 @@ import requests
 import feedparser
 from datetime import datetime
 from bs4 import BeautifulSoup
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.common.by import By
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -61,10 +57,10 @@ def get_user_count():
     conn.close()
     return count
 
-# ---------- BBC TAMIL NEWS ----------
-def get_bbc_news():
-    news_list = []
-    # 1. BBC Tamil
+# ---------- 1. TAMIL NEWS (BBC, Daily Thanthi, The Hindu, Puthiya Thalaimurai) ----------
+def get_tamil_news():
+    all_news = []
+    # BBC Tamil
     try:
         url = "https://www.bbc.com/tamil"
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
@@ -73,252 +69,218 @@ def get_bbc_news():
         articles = soup.find_all('a', class_='focusIndicatorDisplayBlock')
         if not articles:
             articles = soup.find_all('h3')
-        for a in articles[:4]:
+        for a in articles[:5]:
             title = a.get_text(strip=True)
             href = a.get('href') if a.name == 'a' else (a.find('a').get('href') if a.find('a') else None)
             if title and len(title) > 15 and href:
                 if not href.startswith('http'):
                     href = 'https://www.bbc.com' + href
-                news_list.append(f"📌 *{title}*\n🔗 [Read more]({href})\n🏷️ *Source:* BBC Tamil")
-        print(f"✅ BBC Tamil - {len(news_list[:4])} செய்திகள்")
+                all_news.append(f"📌 *{title}*\n🔗 [Read more]({href})\n🏷️ *Source:* BBC Tamil")
     except Exception as e:
         print(f"⚠️ BBC Tamil error: {e}")
 
-    # 2. Daily Thanthi
+    # Daily Thanthi
     try:
         url = "https://www.dailythanthi.com/"
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
         response = requests.get(url, headers=headers, timeout=15)
         soup = BeautifulSoup(response.text, 'html.parser')
-        count = 0
         for a in soup.find_all('a', href=True):
             href = a['href']
             if '/news/' in href:
                 title = a.get_text(strip=True)
                 if title and len(title) > 20:
                     full_url = href if href.startswith('http') else 'https://www.dailythanthi.com' + href
-                    news_list.append(f"📌 *{title}*\n🔗 [Read more]({full_url})\n🏷️ *Source:* தினத்தந்தி")
-                    count += 1
-                    if count >= 4:
-                        break
-        print(f"✅ Daily Thanthi - {count} செய்திகள்")
+                    all_news.append(f"📌 *{title}*\n🔗 [Read more]({full_url})\n🏷️ *Source:* தினத்தந்தி")
+                if len([n for n in all_news if 'தினத்தந்தி' in n]) >= 5:
+                    break
     except Exception as e:
         print(f"⚠️ Daily Thanthi error: {e}")
 
-    # 3. The Hindu Tamil RSS
+    # The Hindu Tamil (RSS)
     try:
         feed = feedparser.parse('https://www.thehindu.com/news/national/tamil-nadu/?service=rss')
-        for entry in feed.entries[:4]:
-            news_list.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* The Hindu Tamil")
-        print(f"✅ The Hindu Tamil - {len(feed.entries[:4])} செய்திகள்")
+        for entry in feed.entries[:5]:
+            all_news.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* The Hindu Tamil")
     except Exception as e:
-        print(f"⚠️ The Hindu RSS error: {e}")
+        print(f"⚠️ The Hindu Tamil error: {e}")
 
-    # 4. Puthiya Thalaimurai RSS
+    # Puthiya Thalaimurai (RSS)
     try:
         feed = feedparser.parse('https://www.puthiyathalaimurai.com/rss')
-        for entry in feed.entries[:4]:
-            news_list.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Puthiya Thalaimurai")
-        print(f"✅ Puthiya Thalaimurai - {len(feed.entries[:4])} செய்திகள்")
+        for entry in feed.entries[:5]:
+            all_news.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Puthiya Thalaimurai")
     except Exception as e:
-        print(f"⚠️ Puthiya Thalaimurai RSS error: {e}")
+        print(f"⚠️ Puthiya Thalaimurai error: {e}")
 
-    if not news_list:
-        news_list.append("📰 *தமிழ் செய்திகள்*\nஇப்போது செய்திகள் எதுவும் கிடைக்கவில்லை.")
-    return news_list[:15]
-# ---------- ENGLISH NEWS (BBC World) ----------
+    if not all_news:
+        all_news.append("📰 *தமிழ் செய்திகள்*\nஇப்போது செய்திகள் எதுவும் கிடைக்கவில்லை.")
+    print(f"✅ Tamil News - {len(all_news)} செய்திகள்")
+    return all_news[:12]
+
+# ---------- 2. ENGLISH WORLD NEWS (BBC, Reuters, Guardian, Al Jazeera) ----------
 def get_english_news():
-    news_list = []
-    # 1. BBC World
+    all_news = []
+    # BBC World
     try:
         feed = feedparser.parse('https://feeds.bbci.co.uk/news/world/rss.xml')
-        for entry in feed.entries[:4]:
-            news_list.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* BBC World")
-        print(f"✅ BBC World - {len(feed.entries[:4])} செய்திகள்")
+        for entry in feed.entries[:5]:
+            all_news.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* BBC World")
     except Exception as e:
-        print(f"⚠️ BBC World RSS error: {e}")
+        print(f"⚠️ BBC World error: {e}")
 
-    # 2. Reuters World
+    # Reuters World
     try:
         feed = feedparser.parse('http://feeds.reuters.com/reuters/worldNews')
-        for entry in feed.entries[:4]:
-            news_list.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Reuters")
-        print(f"✅ Reuters World - {len(feed.entries[:4])} செய்திகள்")
+        for entry in feed.entries[:5]:
+            all_news.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Reuters")
     except Exception as e:
-        print(f"⚠️ Reuters World RSS error: {e}")
+        print(f"⚠️ Reuters World error: {e}")
 
-    # 3. Al Jazeera
-    try:
-        feed = feedparser.parse('https://www.aljazeera.com/xml/rss/all.xml')
-        for entry in feed.entries[:4]:
-            news_list.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Al Jazeera")
-        print(f"✅ Al Jazeera - {len(feed.entries[:4])} செய்திகள்")
-    except Exception as e:
-        print(f"⚠️ Al Jazeera RSS error: {e}")
-
-    # 4. The Guardian World
+    # The Guardian World
     try:
         feed = feedparser.parse('https://www.theguardian.com/world/rss')
-        for entry in feed.entries[:4]:
-            news_list.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* The Guardian")
-        print(f"✅ The Guardian - {len(feed.entries[:4])} செய்திகள்")
+        for entry in feed.entries[:5]:
+            all_news.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* The Guardian")
     except Exception as e:
-        print(f"⚠️ The Guardian RSS error: {e}")
+        print(f"⚠️ Guardian error: {e}")
 
-    if not news_list:
-        news_list.append("🌍 *World News*\nNo news available. Please try again later.")
-    return news_list[:15]
-# ---------- DAILY THANTHI NEWS (Selenium + Fallback) ----------
-def get_dailythanthi_news():
-    news_list = []
+    # Al Jazeera
     try:
-        url = "https://www.dailythanthi.com/"
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-        response = requests.get(url, headers=headers, timeout=15)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Look for all links that contain '/news/'
-        for a in soup.find_all('a', href=True):
-            href = a['href']
-            if '/news/' in href:
-                title = a.get_text(strip=True)
-                if title and len(title) > 20:
-                    full_url = href if href.startswith('http') else 'https://www.dailythanthi.com' + href
-                    news_list.append(f"📌 *{title}*\n🔗 [Read more]({full_url})\n🏷️ *Source:* தினத்தந்தி")
-        print(f"✅ Daily Thanthi - {len(news_list)} செய்திகள்")
+        feed = feedparser.parse('https://www.aljazeera.com/xml/rss/all.xml')
+        for entry in feed.entries[:5]:
+            all_news.append(f"📌 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Al Jazeera")
     except Exception as e:
-        print(f"❌ Daily Thanthi error: {e}")
-    return news_list[:10]
+        print(f"⚠️ Al Jazeera error: {e}")
 
-# ---------- SPORTS NEWS ----------
+    if not all_news:
+        all_news.append("🌍 *World News*\nNo news available at the moment.")
+    print(f"✅ English News - {len(all_news)} செய்திகள்")
+    return all_news[:12]
+
+# ---------- 3. SPORTS NEWS (BBC, Sky Sports, ESPN, NYT Sports) ----------
 def get_sports_news():
-    news_list = []
-    # 1. BBC Sport
+    all_news = []
+    # BBC Sport
     try:
         feed = feedparser.parse('https://feeds.bbci.co.uk/sport/rss.xml')
-        for entry in feed.entries[:4]:
-            news_list.append(f"🏏 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* BBC Sport")
-        print(f"✅ BBC Sport - {len(feed.entries[:4])} செய்திகள்")
+        for entry in feed.entries[:5]:
+            all_news.append(f"🏏 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* BBC Sport")
     except Exception as e:
-        print(f"⚠️ BBC Sport RSS error: {e}")
+        print(f"⚠️ BBC Sport error: {e}")
 
-    # 2. Sky Sports
+    # Sky Sports
     try:
         feed = feedparser.parse('http://feeds.skynews.com/feeds/rss/sports.xml')
-        for entry in feed.entries[:4]:
-            news_list.append(f"🏏 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Sky Sports")
-        print(f"✅ Sky Sports - {len(feed.entries[:4])} செய்திகள்")
+        for entry in feed.entries[:5]:
+            all_news.append(f"🏏 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Sky Sports")
     except Exception as e:
-        print(f"⚠️ Sky Sports RSS error: {e}")
+        print(f"⚠️ Sky Sports error: {e}")
 
-    # 3. ESPN
+    # ESPN
     try:
         feed = feedparser.parse('https://www.espn.com/espn/rss/news')
-        for entry in feed.entries[:4]:
-            news_list.append(f"🏏 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* ESPN")
-        print(f"✅ ESPN - {len(feed.entries[:4])} செய்திகள்")
+        for entry in feed.entries[:5]:
+            all_news.append(f"🏏 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* ESPN")
     except Exception as e:
-        print(f"⚠️ ESPN RSS error: {e}")
+        print(f"⚠️ ESPN error: {e}")
 
-    # 4. NYT Sports
+    # NYT Sports
     try:
         feed = feedparser.parse('https://rss.nytimes.com/services/xml/rss/nyt/Sports.xml')
-        for entry in feed.entries[:4]:
-            news_list.append(f"🏏 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* NYT Sports")
-        print(f"✅ NYT Sports - {len(feed.entries[:4])} செய்திகள்")
+        for entry in feed.entries[:5]:
+            all_news.append(f"🏏 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* NYT Sports")
     except Exception as e:
-        print(f"⚠️ NYT Sports RSS error: {e}")
+        print(f"⚠️ NYT Sports error: {e}")
 
-    if not news_list:
-        news_list.append("🏏 *Sports News*\nNo sports news available. Try again later.")
-    return news_list[:15]
-# ---------- CINEMA NEWS ----------
-def get_cinema_news():
-    news_list = []
-    # 1. Variety
-    try:
-        feed = feedparser.parse('https://variety.com/feed/')
-        for entry in feed.entries[:4]:
-            news_list.append(f"🎬 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Variety")
-        print(f"✅ Variety - {len(feed.entries[:4])} செய்திகள்")
-    except Exception as e:
-        print(f"⚠️ Variety RSS error: {e}")
+    if not all_news:
+        all_news.append("🏏 *Sports News*\nUnable to fetch sports news. Try again later.")
+    print(f"✅ Sports News - {len(all_news)} செய்திகள்")
+    return all_news[:12]
 
-    # 2. Hollywood Reporter
-    try:
-        feed = feedparser.parse('https://www.hollywoodreporter.com/feed/')
-        for entry in feed.entries[:4]:
-            news_list.append(f"🎬 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Hollywood Reporter")
-        print(f"✅ Hollywood Reporter - {len(feed.entries[:4])} செய்திகள்")
-    except Exception as e:
-        print(f"⚠️ Hollywood Reporter RSS error: {e}")
-
-    # 3. Empire Online
-    try:
-        feed = feedparser.parse('https://www.empireonline.com/feed/')
-        for entry in feed.entries[:4]:
-            news_list.append(f"🎬 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Empire")
-        print(f"✅ Empire - {len(feed.entries[:4])} செய்திகள்")
-    except Exception as e:
-        print(f"⚠️ Empire RSS error: {e}")
-
-    # 4. Deadline
-    try:
-        feed = feedparser.parse('https://deadline.com/feed/')
-        for entry in feed.entries[:4]:
-            news_list.append(f"🎬 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Deadline")
-        print(f"✅ Deadline - {len(feed.entries[:4])} செய்திகள்")
-    except Exception as e:
-        print(f"⚠️ Deadline RSS error: {e}")
-
-    if not news_list:
-        news_list.append("🎬 *Cinema News*\nNo cinema news available. Try again later.")
-    return news_list[:15]
-# ---------- BUSINESS NEWS ----------
+# ---------- 4. BUSINESS NEWS (Reuters, BBC Business, Bloomberg, Financial Times) ----------
 def get_business_news():
-    news_list = []
-    # 1. Reuters Business
+    all_news = []
+    # Reuters Business
     try:
         feed = feedparser.parse('http://feeds.reuters.com/reuters/businessNews')
-        for entry in feed.entries[:4]:
-            news_list.append(f"💰 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Reuters")
-        print(f"✅ Reuters Business - {len(feed.entries[:4])} செய்திகள்")
+        for entry in feed.entries[:5]:
+            all_news.append(f"💰 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Reuters")
     except Exception as e:
-        print(f"⚠️ Reuters RSS error: {e}")
+        print(f"⚠️ Reuters Business error: {e}")
 
-    # 2. BBC Business
+    # BBC Business
     try:
         feed = feedparser.parse('https://feeds.bbci.co.uk/news/business/rss.xml')
-        for entry in feed.entries[:4]:
-            news_list.append(f"💰 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* BBC Business")
-        print(f"✅ BBC Business - {len(feed.entries[:4])} செய்திகள்")
+        for entry in feed.entries[:5]:
+            all_news.append(f"💰 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* BBC Business")
     except Exception as e:
-        print(f"⚠️ BBC Business RSS error: {e}")
+        print(f"⚠️ BBC Business error: {e}")
 
-    # 3. Bloomberg Markets
+    # Bloomberg Markets
     try:
         feed = feedparser.parse('https://feeds.bloomberg.com/markets/news.rss')
-        for entry in feed.entries[:4]:
-            news_list.append(f"💰 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Bloomberg")
-        print(f"✅ Bloomberg Markets - {len(feed.entries[:4])} செய்திகள்")
+        for entry in feed.entries[:5]:
+            all_news.append(f"💰 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Bloomberg")
     except Exception as e:
-        print(f"⚠️ Bloomberg RSS error: {e}")
+        print(f"⚠️ Bloomberg error: {e}")
 
-    # 4. Financial Times
+    # Financial Times
     try:
         feed = feedparser.parse('https://www.ft.com/?format=rss')
-        for entry in feed.entries[:4]:
-            news_list.append(f"💰 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Financial Times")
-        print(f"✅ Financial Times - {len(feed.entries[:4])} செய்திகள்")
+        for entry in feed.entries[:5]:
+            all_news.append(f"💰 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Financial Times")
     except Exception as e:
-        print(f"⚠️ Financial Times RSS error: {e}")
+        print(f"⚠️ FT error: {e}")
 
-    if not news_list:
-        news_list.append("💰 *Business News*\nNo business news available. Try again later.")
-    return news_list[:15]
-# ---------- SEARCH ----------
+    if not all_news:
+        all_news.append("💰 *Business News*\nNo business news available. Try again later.")
+    print(f"✅ Business News - {len(all_news)} செய்திகள்")
+    return all_news[:12]
+
+# ---------- 5. CINEMA NEWS (Variety, Hollywood Reporter, Empire, Deadline) ----------
+def get_cinema_news():
+    all_news = []
+    # Variety
+    try:
+        feed = feedparser.parse('https://variety.com/feed/')
+        for entry in feed.entries[:5]:
+            all_news.append(f"🎬 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Variety")
+    except Exception as e:
+        print(f"⚠️ Variety error: {e}")
+
+    # Hollywood Reporter
+    try:
+        feed = feedparser.parse('https://www.hollywoodreporter.com/feed/')
+        for entry in feed.entries[:5]:
+            all_news.append(f"🎬 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Hollywood Reporter")
+    except Exception as e:
+        print(f"⚠️ Hollywood Reporter error: {e}")
+
+    # Empire Online
+    try:
+        feed = feedparser.parse('https://www.empireonline.com/feed/')
+        for entry in feed.entries[:5]:
+            all_news.append(f"🎬 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Empire")
+    except Exception as e:
+        print(f"⚠️ Empire error: {e}")
+
+    # Deadline
+    try:
+        feed = feedparser.parse('https://deadline.com/feed/')
+        for entry in feed.entries[:5]:
+            all_news.append(f"🎬 *{entry.title}*\n🔗 [Read more]({entry.link})\n🏷️ *Source:* Deadline")
+    except Exception as e:
+        print(f"⚠️ Deadline error: {e}")
+
+    if not all_news:
+        all_news.append("🎬 *Cinema News*\nNo cinema news available. Try again later.")
+    print(f"✅ Cinema News - {len(all_news)} செய்திகள்")
+    return all_news[:12]
+
+# ---------- SEARCH (Tamil only, you can extend) ----------
 def search_news(keyword):
-    all_news = get_bbc_news() + get_dailythanthi_news()
+    all_news = get_tamil_news()  # Search only in Tamil news for now
     filtered = [news for news in all_news if keyword.lower() in news.lower()]
     return filtered
 
@@ -383,12 +345,12 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def get_news(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("📰 செய்திகள் சேகரிக்கப்படுகிறது. சிறிது பொறுக்கவும்...")
-    all_news = get_bbc_news() + get_dailythanthi_news()
+    all_news = get_tamil_news()  # for /news command we show Tamil news
     if all_news:
-        message = "📰 *பல தள செய்திகள்:*\n\n" + "\n\n".join(all_news[:15])
+        message = "📰 *தமிழ் செய்திகள்:*\n\n" + "\n\n".join(all_news[:12])
         await update.message.reply_text(message, parse_mode='Markdown')
     else:
-        await update.message.reply_text("❌ எந்த தளத்திலிருந்தும் செய்திகள் கிடைக்கவில்லை.")
+        await update.message.reply_text("❌ செய்திகள் எதுவும் கிடைக்கவில்லை.")
 
 async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyword = " ".join(context.args)
@@ -420,7 +382,6 @@ async def news_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='Markdown'
     )
 
-# ---------- BUTTON HANDLER (FIXED: No get_news call) ----------
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -428,41 +389,41 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if category == 'tamil_news':
         await query.edit_message_text("📰 தமிழ் செய்திகள் சேகரிக்கப்படுகிறது. சிறிது பொறுக்கவும்...")
-        all_news = get_bbc_news() + get_dailythanthi_news()
-        if all_news:
-            message = "📰 *பல தள செய்திகள்:*\n\n" + "\n\n".join(all_news[:15])
+        news = get_tamil_news()
+        if news:
+            message = "📰 *தமிழ் செய்திகள்:*\n\n" + "\n\n".join(news[:12])
             await query.message.reply_text(message, parse_mode='Markdown')
         else:
-            await query.message.reply_text("❌ எந்த தளத்திலிருந்தும் செய்திகள் கிடைக்கவில்லை.")
+            await query.message.reply_text("❌ தமிழ் செய்திகள் எதுவும் கிடைக்கவில்லை.")
     elif category == 'english_news':
         await query.edit_message_text("🌍 English news fetching...")
-        english_news = get_english_news()
-        if english_news:
-            message = "🌍 *World News (English):*\n\n" + "\n\n".join(english_news[:8])
+        news = get_english_news()
+        if news:
+            message = "🌍 *World News (English):*\n\n" + "\n\n".join(news[:12])
             await query.message.reply_text(message, parse_mode='Markdown')
         else:
             await query.message.reply_text("❌ English news unavailable.")
     elif category == 'sports_news':
         await query.edit_message_text("🏏 Sports news fetching...")
-        sports_news = get_sports_news()
-        if sports_news and not sports_news[0].startswith("🏏 *Sports News*\\nUnable"):
-            message = "🏏 *Sports News:*\n\n" + "\n\n".join(sports_news)
+        news = get_sports_news()
+        if news:
+            message = "🏏 *Sports News:*\n\n" + "\n\n".join(news[:12])
             await query.message.reply_text(message, parse_mode='Markdown')
         else:
             await query.message.reply_text("🏏 Sports news unavailable. Try again later.")
     elif category == 'cinema_news':
         await query.edit_message_text("🎬 Cinema news fetching...")
-        cinema_news = get_cinema_news()
-        if cinema_news and not cinema_news[0].startswith("🎬 *Cinema News*\\nUnable"):
-            message = "🎬 *Cinema News:*\n\n" + "\n\n".join(cinema_news)
+        news = get_cinema_news()
+        if news:
+            message = "🎬 *Cinema News:*\n\n" + "\n\n".join(news[:12])
             await query.message.reply_text(message, parse_mode='Markdown')
         else:
             await query.message.reply_text("🎬 Cinema news unavailable. Try again later.")
     elif category == 'business_news':
         await query.edit_message_text("💰 Business news fetching...")
-        business_news = get_business_news()
-        if business_news and not business_news[0].startswith("💰 *Business News*\\nUnable"):
-            message = "💰 *Business News:*\n\n" + "\n\n".join(business_news)
+        news = get_business_news()
+        if news:
+            message = "💰 *Business News:*\n\n" + "\n\n".join(news[:12])
             await query.message.reply_text(message, parse_mode='Markdown')
         else:
             await query.message.reply_text("💰 Business news unavailable. Try again later.")
@@ -476,7 +437,7 @@ async def auto_post_morning(app):
     users = get_all_users()
     if not users:
         return
-    tamil_news = get_bbc_news() + get_dailythanthi_news()
+    tamil_news = get_tamil_news()
     if tamil_news:
         message = "🌅 *Good Morning! Here's your Tamil News:*\n\n" + "\n\n".join(tamil_news[:8])
         for chat_id in users:
@@ -517,7 +478,6 @@ def main():
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    # Run async
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
